@@ -1,0 +1,15 @@
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
+pydantic==1.10.11
+requests==2.31.0
+python-dotenv==1.0.0
+
+"""
+# should print True after step 1
+python - <<PY
+import importlib.util
+print("app importable?", importlib.util.find_spec("app") is not None)
+PY
+
+
+"""
