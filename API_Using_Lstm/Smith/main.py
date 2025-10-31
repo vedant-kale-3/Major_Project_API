@@ -201,8 +201,8 @@ CATEGORY_SEEDS = {
     'Household/Chores': "don't watch the",
 }
 
-DEADLINE_MISSED_SEED = 'procrastination is a luxury'
-TASK_COMPLETED_RESPONSE = "🎉 HURRAY! I knew you'd do it! A done task is sweeter than dessert."
+DEADLINE_MISSED_SEED = 'Are we gonna finish it today or make it part of history?'
+TASK_COMPLETED_RESPONSE = " Yippee! Task done! I’m so proud of us! "
 
 
 def handle_user_input(task: str, situation: str):
