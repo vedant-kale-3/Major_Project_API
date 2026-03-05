@@ -4,7 +4,7 @@ import requests
 
 app = FastAPI(title="Motivational Dialogue Generator API", version="2.0.0")
 
-OPENROUTER_API_KEY = "paste_your_openrouter_key_here"
+OPENROUTER_API_KEY = "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"
 
 SYSTEM_PROMPT = """You are a motivational coach in a gamified productivity app called Questify.
 Follow these rules STRICTLY:
@@ -82,3 +82,4 @@ def generate_dialogue(req: TaskRequest):
 
     dialogue = call_llm(req.Task, situation_context)
     return {"Dialogue": dialogue}
+
