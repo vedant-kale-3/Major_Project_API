@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-API_URL = "https://router.huggingface.co/hf-inference/models/TinyLlama/TinyLlama-1.1B-Chat-v1.0/v1/chat/completions"
+API_URL = "https://router.huggingface.co/v1/chat/completions"
 
 def generate_text(prompt):
     # Read token inside the function so it's always fresh
@@ -17,7 +17,7 @@ def generate_text(prompt):
         API_URL,
         headers=headers,
         json={
-            "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0:hf-inferenceinyLlama/TinyLlama-1.1B-Chat-v1.0",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
