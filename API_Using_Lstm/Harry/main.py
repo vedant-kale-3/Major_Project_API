@@ -8,6 +8,9 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.utils import to_categorical
 import uvicorn
 import os
+import re        # ✅ FIX 1: Added for whole-word keyword matching
+import random    # ✅ FIX 4: Added for corpus fallback
+
 
 
 # --- 1️⃣ Initialize FastAPI App ---
@@ -127,9 +130,9 @@ MOTIVATIONAL_CORPUS = [
 
 # --- Hyperparameters ---
 SEQUENCE_LENGTH = 5
-EPOCHS = 20  # reduced for API startup
-LATENT_DIM = 64
-GENERATED_WORD_COUNT = 6
+EPOCHS = 100  
+LATENT_DIM = 128
+GENERATED_WORD_COUNT = 10 
 
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(MOTIVATIONAL_CORPUS)
@@ -154,9 +157,21 @@ model.add(Embedding(total_words, LATENT_DIM, input_length=SEQUENCE_LENGTH))
 model.add(LSTM(LATENT_DIM))
 model.add(Dense(total_words, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-model.fit(X, y, epochs=EPOCHS, verbose=0)
+model.fit(X, y, epochs=EPOCHS, verbose=1)
 
 # --- 4️⃣ Text Generation Function ---
+
+
+# NEW helper function — temperature sampling replaces np.argmax
+# Place this ABOVE generate_motivational_text()
+def sample_with_temperature(predictions, temperature=0.8):
+    predictions = np.asarray(predictions).astype('float64')
+    predictions = np.log(predictions + 1e-10) / temperature
+    exp_preds = np.exp(predictions - np.max(predictions))  # numerically stable
+    predictions = exp_preds / np.sum(exp_preds)
+    return np.random.choice(len(predictions), p=predictions)
+
+
 def generate_motivational_text(seed_text, next_words_count=GENERATED_WORD_COUNT):
     current_text = seed_text
     for _ in range(next_words_count):
@@ -165,20 +180,25 @@ def generate_motivational_text(seed_text, next_words_count=GENERATED_WORD_COUNT)
             [token_list], maxlen=SEQUENCE_LENGTH, padding='pre'
         )
         predicted_probs = model.predict(token_list, verbose=0)[0]
-        predicted_word_index = np.argmax(predicted_probs)
 
-        output_word = ""
-        for word, index in tokenizer.word_index.items():
-            if index == predicted_word_index:
-                output_word = word
-                break
+        # Was np.argmax(predicted_probs) — now uses temperature sampling
+        predicted_word_index = sample_with_temperature(predicted_probs, temperature=0.8)
+
+        # Was a manual for-loop — now uses cleaner built-in dict lookup
+        output_word = tokenizer.index_word.get(predicted_word_index, "")
 
         if output_word:
             current_text += " " + output_word
         else:
             break
 
+    # Repetition guard — if >40% words are duplicates, fallback to corpus
+    words = current_text.split()
+    if len(set(words)) < len(words) * 0.6:
+        return random.choice(MOTIVATIONAL_CORPUS)
+
     return current_text
+
 
 
 # --- 5️⃣ Core Task Handling Logic ---
@@ -187,48 +207,59 @@ TASK_KEYWORDS = {
     'workout': 'Fitness/Gym',
     'exercise': 'Fitness/Gym',
     'study': 'Academics/Learning',
+    'homework': 'Academics/Learning',    
+    'assignment': 'Academics/Learning',  
     'math': 'Academics/Learning',
     'report': 'Work/Project',
     'work': 'Work/Project',
+    'project': 'Work/Project',           
     'clean': 'Household/Chores',
 }
 
 CATEGORY_SEEDS = {
     'Fitness/Gym': 'hustle beats talent',
-    'Academics/Learning': 'a wise mind finishes',
+    'Academics/Learning': 'a wise mind finishes',   
     'Work/Project': 'finish tasks like',
     'Household/Chores': "don't watch the",
 }
 
-DEADLINE_MISSED_SEED = 'You can’t win a fight you haven’t finished — let’s go!'
-TASK_COMPLETED_RESPONSE = " Mission complete — your strength echoes in the halls of Questify! "
+DEADLINE_MISSED_SEED = "let's go finish"   
+TASK_COMPLETED_RESPONSE = "Mission complete — your strength echoes in the halls of Questify!"
 
 
 def handle_user_input(task: str, situation: str):
     normalized_input = task.lower().strip()
+    normalized_situation = situation.lower().strip()   # ✅ FIX 2: Normalize situation too
 
-    # Task completed
-    if situation.lower() == "done":
+    # Task completed — no change needed
+    if normalized_situation == "done":
         return TASK_COMPLETED_RESPONSE
 
     # Missed deadline
-    if situation.lower() == "notification":
+    if normalized_situation == "notification":
         dialogue = generate_motivational_text(DEADLINE_MISSED_SEED)
-        return f"🔥 Time’s up! {dialogue}"
+        return f"🔥 Time's up! {dialogue}"
 
-    # First-time task (motivate)
-    detected_category = None
+    # ✅ FIX 2: Explicitly handle "first time" / "first_time" situation
+    if normalized_situation in ["first time", "first_time", "new"]:
+        for keyword, category in TASK_KEYWORDS.items():
+            # ✅ FIX 1: \b...\b ensures whole-word match — "work" won't match "homework"
+            if re.search(r'\b' + keyword + r'\b', normalized_input):
+                seed = CATEGORY_SEEDS.get(category, 'start where you are')
+                dialogue = generate_motivational_text(seed)
+                return f"✨ First time? Here's your push: {dialogue}"
+
+        # ✅ FIX 2: Generic motivational fallback for unrecognised tasks on first time
+        return "Every expert was once a beginner. Take the first step — you've got this! 💪"
+
+    # Fallback for any other situation (covers unrecognized situations too)
     for keyword, category in TASK_KEYWORDS.items():
-        if keyword in normalized_input:
-            detected_category = category
-            break
+        if re.search(r'\b' + keyword + r'\b', normalized_input):
+            seed = CATEGORY_SEEDS.get(category, 'start where you are')
+            return generate_motivational_text(seed)
 
-    if detected_category:
-        seed = CATEGORY_SEEDS.get(detected_category, 'start where you')
-        dialogue = generate_motivational_text(seed)
-        return f"{dialogue}"
+    return "I'm not sure what that task is, but you've got this!"
 
-    return "I’m not sure what that task is, but you’ve got this!"
 
 
 # --- 6️⃣ API Endpoint ---
@@ -244,5 +275,5 @@ def generate_dialogue(req: TaskRequest):
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="127.0.0.1", port=port)
