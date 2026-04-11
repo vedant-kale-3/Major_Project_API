@@ -17,11 +17,11 @@ def generate_text(prompt):
         API_URL,
         headers=headers,
         json={
-            "model": "hf-inference/TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            "model": "meta-llama/Llama-3.2-1B-Instruct:novita",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 30,
+            "max_tokens": 60,
             "temperature": 0.85,
             "top_p": 0.9
         }
