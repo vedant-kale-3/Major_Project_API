@@ -4,14 +4,18 @@ import os
 
 app = Flask(__name__)
 
-HF_TOKEN = os.environ.get("HF_TOKEN")
 API_URL = "https://router.huggingface.co/hf-inference/models/TinyLlama/TinyLlama-1.1B-Chat-v1.0/v1/chat/completions"
-HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 def generate_text(prompt):
+    # Read token inside the function so it's always fresh
+    hf_token = os.environ.get("HF_TOKEN")
+    print(f"HF_TOKEN loaded: {hf_token[:10] if hf_token else 'NOT FOUND'}")
+
+    headers = {"Authorization": f"Bearer {hf_token}"}
+
     response = requests.post(
         API_URL,
-        headers=HEADERS,
+        headers=headers,
         json={
             "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
             "messages": [
@@ -22,9 +26,15 @@ def generate_text(prompt):
             "top_p": 0.9
         }
     )
+
+    print(f"Status Code: {response.status_code}")
+    print(f"Raw Response: {response.text}")
+
+    if not response.text.strip():
+        return f"Error: Empty response from HuggingFace (status {response.status_code})"
+
     result = response.json()
 
-    # Handle errors
     if "error" in result:
         return f"Model error: {result['error']}"
 
