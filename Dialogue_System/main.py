@@ -17,7 +17,7 @@ def generate_text(prompt):
         API_URL,
         headers=headers,
         json={
-            "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0:hf-inferenceinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            "model": "hf-inference/TinyLlama/TinyLlama-1.1B-Chat-v1.0",
             "messages": [
                 {"role": "user", "content": prompt}
             ],
