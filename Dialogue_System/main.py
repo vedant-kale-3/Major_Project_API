@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 HF_TOKEN = os.environ.get("HF_TOKEN")
-API_URL = "https://api-inference.huggingface.co/models/TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+API_URL = "https://router.huggingface.co/hf-inference/models/TinyLlama/TinyLlama-1.1B-Chat-v1.0/v1/chat/completions"
 HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 def generate_text(prompt):
@@ -13,24 +13,22 @@ def generate_text(prompt):
         API_URL,
         headers=HEADERS,
         json={
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 30,
-                "temperature": 0.85,
-                "top_p": 0.9,
-                "do_sample": True
-            }
+            "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 30,
+            "temperature": 0.85,
+            "top_p": 0.9
         }
     )
     result = response.json()
 
-    # Handle errors from HuggingFace API
-    if isinstance(result, dict) and "error" in result:
+    # Handle errors
+    if "error" in result:
         return f"Model error: {result['error']}"
-    
-    raw_output = result[0]["generated_text"]
-    generated = raw_output[len(prompt):].strip()
-    return generated
+
+    return result["choices"][0]["message"]["content"].strip()
 
 def resolve_tone(urgency, character_tone):
     urgency_tone_map = {
